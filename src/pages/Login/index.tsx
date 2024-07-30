@@ -1,7 +1,7 @@
 import styled from '@emotion/styled';
 import axios from 'axios';
-import { useEffect,useState } from 'react';
-import { Link,useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import KAKAO_LOGO from '@/assets/kakao_logo.svg';
 import { Button } from '@/components/common/Button';
@@ -12,6 +12,23 @@ import { breakpoints } from '@/styles/variants';
 type AuthRequestBody = {
   email: string;
   password: string;
+};
+
+type LoginResponse = {
+  email: string;
+  token: string;
+};
+
+type ErrorResponse = {
+  errorMessage: string;
+};
+
+const isErrorResponse = (error: unknown): error is { response: { data: ErrorResponse } } => {
+  return typeof error === 'object' && error !== null &&
+          'response' in error && 
+          typeof (error as { response?: unknown }).response === 'object' &&
+          'data' in (error as { response: { data?: unknown } }).response &&
+          typeof (error as { response: { data: { errorMessage?: unknown } } }).response.data.errorMessage === 'string';
 };
 
 const LoginPage = () => {
@@ -33,7 +50,7 @@ const LoginPage = () => {
     }
 
     try {
-      const response = await axios.post<{ email: string; token: string }>('/api/members/login', {
+      const response = await axios.post<LoginResponse>('/api/members/login', {
         email,
         password,
       } as AuthRequestBody);
@@ -42,10 +59,14 @@ const LoginPage = () => {
       alert('로그인 성공');
       const redirectUrl = queryParams.get('redirect') ?? `${window.location.origin}/`;
       window.location.replace(redirectUrl);
-    } catch (err) {
-      const error = err as { response?: { data: { errorMessage: string } } }; // error 객체 타입 명시
-      console.error('로그인 실패:', error.response?.data); // 서버 오류 확인을 위해 콘솔에 오류 메시지 출력
-      alert('로그인 실패');
+    } catch (err: unknown) {
+      if (isErrorResponse(err)) {
+        console.error('로그인 실패:', err.response.data); // 서버 오류 확인을 위해 콘솔에 오류 메시지 출력
+        alert('로그인 실패: ' + err.response.data.errorMessage);
+      } else {
+        console.error('로그인 실패:', err);
+        alert('로그인 실패');
+      }
     }
   };
 
